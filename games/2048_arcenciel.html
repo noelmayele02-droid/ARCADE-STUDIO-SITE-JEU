@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>2048 Arc-en-ciel</title>
+<style>
+  :root{ --accent:#ff5fa2; --accent2:#7a5fff; }
+  html,body{
+    margin:0; height:100%;
+    background:radial-gradient(ellipse at top, #2a1a5e, #0b1026);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Trebuchet MS', system-ui, sans-serif;
+    overflow:hidden;
+  }
+  #wrap{ position:relative; border-radius:12px; overflow:hidden; border:3px solid rgba(255,255,255,0.15); box-shadow:0 20px 60px rgba(0,0,0,0.5); background:#20163f; padding-top:56px; }
+  #hud{ position:absolute; top:10px; left:14px; right:14px; display:flex; justify-content:space-between; color:#fff; font-size:16px; font-weight:bold; text-shadow:0 2px 6px rgba(0,0,0,0.6); user-select:none; }
+  #board{
+    position:relative;
+    width:396px; height:396px;
+    margin:0 10px 10px 10px;
+    background:#181233;
+    border-radius:10px;
+    touch-action:none;
+  }
+  .cellBg{ position:absolute; width:86px; height:86px; background:rgba(255,255,255,0.04); border-radius:8px; }
+  .tile{
+    position:absolute; width:86px; height:86px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:bold; font-size:26px; color:#1a1a2e;
+    transition:left .1s ease, top .1s ease;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3);
+  }
+  #overlay{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; background:rgba(10,8,30,0.68); backdrop-filter:blur(2px); padding:20px; box-sizing:border-box; z-index:10; }
+  #overlay h1{ margin:0 0 8px 0; font-size:24px; background:linear-gradient(90deg,#ff5f6d,#ffc371,#8fff5f,#5fdcff,#a15fff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #overlay p{ margin:4px 0; font-size:13px; opacity:0.9; }
+  .btn{ margin-top:16px; padding:12px 26px; font-size:18px; font-weight:bold; color:white; background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; border-radius:30px; cursor:pointer; box-shadow:0 6px 18px rgba(255,95,162,0.5); }
+  .btn:active{ transform:scale(0.97); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span id="scoreLabel">Score : 0</span>
+    <span id="bestLabel">Record : 0</span>
+  </div>
+  <div id="board"></div>
+  <div id="overlay">
+    <h1>🎨 2048 Arc-en-ciel</h1>
+    <p>Flèches (ou glisse le doigt) pour déplacer les tuiles</p>
+    <p>Fusionne deux tuiles identiques pour les combiner</p>
+    <p>Atteins la tuile arc-en-ciel ultime !</p>
+    <button class="btn" id="playBtn">Jouer</button>
+  </div>
+</div>
+
+<script>
+const boardEl = document.getElementById('board');
+const overlay = document.getElementById('overlay');
+const scoreLabel = document.getElementById('scoreLabel');
+const bestLabel = document.getElementById('bestLabel');
+
+const SIZE = 4;
+const CELL = 86, GAP = 10;
+let grid, score, best=0, state='ready';
+
+const tileStyles = {
+  2:    {bg:'#fff2c2', color:'#7a5f00'},
+  4:    {bg:'#ffe08a', color:'#7a5f00'},
+  8:    {bg:'#ffc371', color:'#5a3a00'},
+  16:   {bg:'#ff9d6c', color:'#fff'},
+  32:   {bg:'#ff5f6d', color:'#fff'},
+  64:   {bg:'#ff5fa2', color:'#fff'},
+  128:  {bg:'#c46bff', color:'#fff'},
+  256:  {bg:'#a15fff', color:'#fff'},
+  512:  {bg:'#7a5fff', color:'#fff'},
+  1024: {bg:'#5f8bff', color:'#fff'},
+  2048: {bg:'#5fdcff', color:'#0b1026'},
+  4096: {bg:'#8fff5f', color:'#0b1026'}
+};
+function styleFor(v){
+  return tileStyles[v] || {bg:'#ffffff', color:'#1a1a2e'};
+}
+
+function posPx(i){ return GAP + i*(CELL+GAP); }
+
+function buildBackground(){
+  boardEl.querySelectorAll('.cellBg').forEach(e=>e.remove());
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const bg = document.createElement('div');
+      bg.className = 'cellBg';
+      bg.style.left = posPx(c)+'px';
+      bg.style.top = posPx(r)+'px';
+      boardEl.appendChild(bg);
+    }
+  }
+}
+buildBackground();
+
+function emptyGrid(){
+  return Array.from({length:SIZE}, ()=>Array(SIZE).fill(0));
+}
+
+function resetGame(){
+  grid = emptyGrid();
+  score = 0;
+  addRandomTile();
+  addRandomTile();
+  updateHud();
+  render();
+}
+
+function addRandomTile(){
+  const empties = [];
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(grid[r][c]===0) empties.push([r,c]);
+  if(empties.length===0) return false;
+  const [r,c] = empties[Math.floor(Math.random()*empties.length)];
+  grid[r][c] = Math.random()<0.85 ? 2 : 4;
+  return true;
+}
+
+function updateHud(){
+  scoreLabel.textContent = 'Score : ' + score;
+  bestLabel.textContent = 'Record : ' + best;
+}
+
+function startGame(){
+  resetGame();
+  state='playing';
+  overlay.classList.add('hidden');
+}
+
+function render(){
+  boardEl.querySelectorAll('.tile').forEach(e=>e.remove());
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const v = grid[r][c];
+      if(v===0) continue;
+      const el = document.createElement('div');
+      el.className = 'tile';
+      const st = styleFor(v);
+      el.style.background = st.bg;
+      el.style.color = st.color;
+      el.style.left = posPx(c)+'px';
+      el.style.top = posPx(r)+'px';
+      el.style.fontSize = v>=1024 ? '20px' : '26px';
+      el.textContent = v;
+      boardEl.appendChild(el);
+    }
+  }
+}
+
+function slideRow(row){
+  const filtered = row.filter(v=>v!==0);
+  const merged = [];
+  let gained = 0;
+  for(let i=0;i<filtered.length;i++){
+    if(filtered[i]===filtered[i+1]){
+      const val = filtered[i]*2;
+      merged.push(val);
+      gained += val;
+      i++;
+    } else {
+      merged.push(filtered[i]);
+    }
+  }
+  while(merged.length<SIZE) merged.push(0);
+  return {row:merged, gained, moved: JSON.stringify(row)!==JSON.stringify(merged)};
+}
+
+function rotateGridCW(g){
+  const ng = emptyGrid();
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) ng[c][SIZE-1-r] = g[r][c];
+  return ng;
+}
+
+function move(dir){
+  // dir: 'left','right','up','down'
+  let g = grid;
+  let rotations = {left:0, up:1, right:2, down:3}[dir];
+  for(let i=0;i<rotations;i++) g = rotateGridCW(g);
+
+  let moved = false, gained = 0;
+  const newG = [];
+  for(let r=0;r<SIZE;r++){
+    const res = slideRow(g[r]);
+    newG.push(res.row);
+    if(res.moved) moved = true;
+    gained += res.gained;
+  }
+  g = newG;
+  for(let i=0;i<(4-rotations)%4;i++) g = rotateGridCW(g);
+
+  if(moved){
+    grid = g;
+    score += gained;
+    updateHud();
+    addRandomTile();
+    render();
+    checkGameOver();
+  }
+}
+
+function canMove(){
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      if(grid[r][c]===0) return true;
+      if(c<SIZE-1 && grid[r][c]===grid[r][c+1]) return true;
+      if(r<SIZE-1 && grid[r][c]===grid[r+1][c]) return true;
+    }
+  }
+  return false;
+}
+
+function checkGameOver(){
+  if(!canMove()){
+    state='dead';
+    best = Math.max(best,score);
+    updateHud();
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `<h1>🎨 Plus de mouvements !</h1><p>Score : <strong>${score}</strong></p><p>Record : <strong>${best}</strong></p><button class="btn" id="playBtn2">Rejouer</button>`;
+    document.getElementById('playBtn2').addEventListener('click', startGame);
+  }
+}
+
+window.addEventListener('keydown',(e)=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+  if(state==='ready'){ startGame(); return; }
+  if(state!=='playing') return;
+  if(e.code==='ArrowLeft') move('left');
+  if(e.code==='ArrowRight') move('right');
+  if(e.code==='ArrowUp') move('up');
+  if(e.code==='ArrowDown') move('down');
+});
+
+// swipe tactile
+let touchStartX=0, touchStartY=0;
+boardEl.addEventListener('touchstart',(e)=>{
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, {passive:true});
+boardEl.addEventListener('touchend',(e)=>{
+  if(state==='ready'){ startGame(); return; }
+  const dx = e.changedTouches[0].clientX-touchStartX;
+  const dy = e.changedTouches[0].clientY-touchStartY;
+  if(Math.abs(dx)>Math.abs(dy)){
+    move(dx>30 ? 'right' : dx<-30 ? 'left' : null);
+  } else {
+    move(dy>30 ? 'down' : dy<-30 ? 'up' : null);
+  }
+});
+
+document.getElementById('playBtn').addEventListener('click', startGame);
+
+resetGame();
+</script>
+</body>
+</html>

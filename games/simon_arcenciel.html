@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Simon Arc-en-ciel</title>
+<style>
+  :root{ --accent:#ff5fa2; --accent2:#7a5fff; }
+  html,body{
+    margin:0; height:100%;
+    background:radial-gradient(ellipse at top, #2a1a5e, #0b1026);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Trebuchet MS', system-ui, sans-serif;
+    overflow:hidden;
+  }
+  #wrap{ position:relative; border-radius:12px; overflow:hidden; border:3px solid rgba(255,255,255,0.15); box-shadow:0 20px 60px rgba(0,0,0,0.5); background:#181233; }
+  #hud{ position:absolute; top:10px; left:14px; right:14px; display:flex; justify-content:space-between; color:#fff; font-size:16px; font-weight:bold; text-shadow:0 2px 6px rgba(0,0,0,0.6); user-select:none; z-index:5; }
+  #board{
+    width:380px; height:380px;
+    margin:60px 20px 20px 20px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr;
+    gap:12px;
+  }
+  .pad{
+    border-radius:16px;
+    border:none;
+    cursor:pointer;
+    opacity:0.55;
+    transition:opacity .1s, transform .1s;
+  }
+  .pad.lit{ opacity:1; transform:scale(0.97); box-shadow:0 0 30px currentColor; }
+  #pad0{ background:#ff5f6d; color:#ff5f6d; border-radius:16px 4px 4px 4px; }
+  #pad1{ background:#5fdcff; color:#5fdcff; border-radius:4px 16px 4px 4px; }
+  #pad2{ background:#8fff5f; color:#8fff5f; border-radius:4px 4px 4px 16px; }
+  #pad3{ background:#a15fff; color:#a15fff; border-radius:4px 4px 16px 4px; }
+  #centerLabel{
+    position:absolute;
+    top:50%; left:50%; transform:translate(-50%,-50%);
+    width:110px; height:110px; border-radius:50%;
+    background:#181233; border:3px solid rgba(255,255,255,0.15);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:bold; font-size:28px;
+    pointer-events:none;
+  }
+  #overlay{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; background:rgba(10,8,30,0.68); backdrop-filter:blur(2px); padding:20px; box-sizing:border-box; z-index:10; }
+  #overlay h1{ margin:0 0 8px 0; font-size:24px; background:linear-gradient(90deg,#ff5f6d,#ffc371,#8fff5f,#5fdcff,#a15fff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #overlay p{ margin:4px 0; font-size:13px; opacity:0.9; }
+  .btn{ margin-top:16px; padding:12px 26px; font-size:18px; font-weight:bold; color:white; background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; border-radius:30px; cursor:pointer; box-shadow:0 6px 18px rgba(255,95,162,0.5); }
+  .btn:active{ transform:scale(0.97); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span id="roundLabel">Round : 0</span>
+    <span id="bestLabel">Record : 0</span>
+  </div>
+  <div id="board" style="position:relative;">
+    <button class="pad" id="pad0"></button>
+    <button class="pad" id="pad1"></button>
+    <button class="pad" id="pad2"></button>
+    <button class="pad" id="pad3"></button>
+    <div id="centerLabel">?</div>
+  </div>
+  <div id="overlay">
+    <h1>🧠 Simon Arc-en-ciel</h1>
+    <p>Regarde la séquence de pastilles qui s'allument</p>
+    <p>Puis reproduis-la dans le même ordre en cliquant</p>
+    <p>La séquence s'allonge à chaque round !</p>
+    <button class="btn" id="playBtn">Jouer</button>
+  </div>
+</div>
+
+<script>
+const overlay = document.getElementById('overlay');
+const roundLabel = document.getElementById('roundLabel');
+const bestLabel = document.getElementById('bestLabel');
+const centerLabel = document.getElementById('centerLabel');
+const pads = [0,1,2,3].map(i=>document.getElementById('pad'+i));
+
+let audioCtx = null;
+function beep(freq, dur=220){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur/1000);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime+dur/1000);
+  }catch(e){}
+}
+const freqs = [220, 277, 330, 392];
+
+let state = 'ready'; // ready | showing | input | dead
+let sequence = [];
+let playerStep = 0;
+let round = 0;
+let best = 0;
+
+function updateHud(){
+  roundLabel.textContent = 'Round : ' + round;
+  bestLabel.textContent = 'Record : ' + best;
+  centerLabel.textContent = state==='showing' ? '👀' : state==='input' ? '👆' : round;
+}
+
+function resetGame(){
+  sequence = [];
+  playerStep = 0;
+  round = 0;
+  updateHud();
+}
+
+function startGame(){
+  resetGame();
+  overlay.classList.add('hidden');
+  nextRound();
+}
+
+function nextRound(){
+  round++;
+  sequence.push(Math.floor(Math.random()*4));
+  playerStep = 0;
+  updateHud();
+  playSequence();
+}
+
+function litPad(i, dur=380){
+  return new Promise(resolve=>{
+    pads[i].classList.add('lit');
+    beep(freqs[i], dur*0.8);
+    setTimeout(()=>{
+      pads[i].classList.remove('lit');
+      setTimeout(resolve, 90);
+    }, dur);
+  });
+}
+
+async function playSequence(){
+  state = 'showing';
+  updateHud();
+  await new Promise(r=>setTimeout(r,400));
+  const speed = Math.max(260, 420-round*8);
+  for(const i of sequence){
+    await litPad(i, speed);
+  }
+  state = 'input';
+  updateHud();
+}
+
+function handlePad(i){
+  if(state!=='input') return;
+  litPad(i,180);
+  if(sequence[playerStep]===i){
+    playerStep++;
+    if(playerStep>=sequence.length){
+      state='showing';
+      setTimeout(nextRound, 550);
+    }
+  } else {
+    endGame();
+  }
+}
+
+function endGame(){
+  state='dead';
+  best = Math.max(best, round-1);
+  updateHud();
+  beep(110,400);
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `<h1>💥 Oups !</h1><p>Tu es arrivé au round <strong>${round}</strong></p><p>Record : <strong>${best}</strong></p><button class="btn" id="playBtn2">Rejouer</button>`;
+  document.getElementById('playBtn2').addEventListener('click', startGame);
+}
+
+pads.forEach((p,i)=> p.addEventListener('click', ()=>handlePad(i)));
+document.getElementById('playBtn').addEventListener('click', startGame);
+
+updateHud();
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Tape-Chat !</title>
+<style>
+  :root{ --accent:#ff5fa2; --accent2:#7a5fff; }
+  html,body{
+    margin:0; height:100%;
+    background:radial-gradient(ellipse at top, #2a1a5e, #0b1026);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Trebuchet MS', system-ui, sans-serif;
+    overflow:hidden;
+  }
+  #wrap{ position:relative; border-radius:12px; overflow:hidden; border:3px solid rgba(255,255,255,0.15); box-shadow:0 20px 60px rgba(0,0,0,0.5); background:#241a4d; }
+  #hud{ position:absolute; top:10px; left:14px; right:14px; display:flex; justify-content:space-between; color:#fff; font-size:16px; font-weight:bold; text-shadow:0 2px 6px rgba(0,0,0,0.6); user-select:none; z-index:5; }
+  #board{
+    width:420px; height:420px;
+    margin:60px 10px 10px 10px;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);
+    gap:14px;
+  }
+  .hole{
+    position:relative;
+    border-radius:50%;
+    background:radial-gradient(ellipse at 50% 40%, #0a0714, #1c1440);
+    border:3px solid rgba(255,255,255,0.1);
+    overflow:hidden;
+    cursor:pointer;
+  }
+  .critter{
+    position:absolute;
+    left:50%; bottom:-100%;
+    width:70%; height:70%;
+    transform:translateX(-50%);
+    transition:bottom .12s cubic-bezier(.2,.9,.3,1.3);
+    display:flex; align-items:center; justify-content:center;
+    font-size:34px;
+    user-select:none;
+  }
+  .critter.up{ bottom:6%; }
+  #overlay{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; background:rgba(10,8,30,0.68); backdrop-filter:blur(2px); padding:20px; box-sizing:border-box; z-index:10; }
+  #overlay h1{ margin:0 0 8px 0; font-size:24px; background:linear-gradient(90deg,#ff5f6d,#ffc371,#8fff5f,#5fdcff,#a15fff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #overlay p{ margin:4px 0; font-size:13px; opacity:0.9; }
+  .btn{ margin-top:16px; padding:12px 26px; font-size:18px; font-weight:bold; color:white; background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; border-radius:30px; cursor:pointer; box-shadow:0 6px 18px rgba(255,95,162,0.5); }
+  .btn:active{ transform:scale(0.97); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span id="scoreLabel">Score : 0</span>
+    <span id="timeLabel">⏱️ 60s</span>
+    <span id="bestLabel">Record : 0</span>
+  </div>
+  <div id="board"></div>
+  <div id="overlay">
+    <h1>🐱 Tape-Chat !</h1>
+    <p>Tape sur les chats 🐱 dès qu'ils sortent du trou</p>
+    <p>Attention : évite les monstres 👹, ils font perdre des points !</p>
+    <p>60 secondes pour faire le meilleur score</p>
+    <button class="btn" id="playBtn">Jouer</button>
+  </div>
+</div>
+
+<script>
+const boardEl = document.getElementById('board');
+const overlay = document.getElementById('overlay');
+const scoreLabel = document.getElementById('scoreLabel');
+const timeLabel = document.getElementById('timeLabel');
+const bestLabel = document.getElementById('bestLabel');
+
+const HOLE_COUNT = 9;
+let holes = [];
+let state = 'ready';
+let score = 0, best = 0, timeLeft = 60;
+let spawnTimer = null, countdownTimer = null;
+let difficulty = 1;
+
+for(let i=0;i<HOLE_COUNT;i++){
+  const holeEl = document.createElement('div');
+  holeEl.className = 'hole';
+  const critterEl = document.createElement('div');
+  critterEl.className = 'critter';
+  holeEl.appendChild(critterEl);
+  boardEl.appendChild(holeEl);
+  const hole = { el: holeEl, critterEl, occupied:false, type:null, hideTimeout:null };
+  holeEl.addEventListener('click', ()=> hitHole(hole));
+  holes.push(hole);
+}
+
+function updateHud(){
+  scoreLabel.textContent = 'Score : ' + score;
+  timeLabel.textContent = '⏱️ ' + timeLeft + 's';
+  bestLabel.textContent = 'Record : ' + best;
+}
+
+function resetGame(){
+  score = 0; timeLeft = 60; difficulty = 1;
+  holes.forEach(h=>{
+    clearTimeout(h.hideTimeout);
+    h.occupied = false;
+    h.critterEl.classList.remove('up');
+  });
+  updateHud();
+}
+
+function startGame(){
+  resetGame();
+  state = 'playing';
+  overlay.classList.add('hidden');
+  scheduleSpawn();
+  countdownTimer = setInterval(()=>{
+    timeLeft--;
+    updateHud();
+    if(timeLeft<=0) endGame();
+  },1000);
+}
+
+function scheduleSpawn(){
+  if(state!=='playing') return;
+  const delay = Math.max(320, 900 - difficulty*40);
+  spawnTimer = setTimeout(()=>{
+    spawnCritter();
+    difficulty += 0.4;
+    scheduleSpawn();
+  }, delay);
+}
+
+function spawnCritter(){
+  const free = holes.filter(h=>!h.occupied);
+  if(free.length===0) return;
+  const hole = free[Math.floor(Math.random()*free.length)];
+  const isMonster = Math.random() < 0.28;
+  hole.occupied = true;
+  hole.type = isMonster ? 'monster' : 'cat';
+  hole.critterEl.textContent = isMonster ? '👹' : '🐱';
+  requestAnimationFrame(()=> hole.critterEl.classList.add('up'));
+
+  const showTime = Math.max(520, 1000 - difficulty*30);
+  hole.hideTimeout = setTimeout(()=>{
+    hole.critterEl.classList.remove('up');
+    setTimeout(()=>{ hole.occupied=false; }, 150);
+  }, showTime);
+}
+
+function hitHole(hole){
+  if(state!=='playing' || !hole.occupied) return;
+  clearTimeout(hole.hideTimeout);
+  if(hole.type==='cat'){
+    score += 10;
+    hole.critterEl.textContent = '✨';
+  } else {
+    score = Math.max(0, score-15);
+    hole.critterEl.textContent = '💥';
+  }
+  updateHud();
+  hole.critterEl.classList.remove('up');
+  setTimeout(()=>{ hole.occupied=false; }, 150);
+}
+
+function endGame(){
+  state = 'dead';
+  clearInterval(countdownTimer);
+  clearTimeout(spawnTimer);
+  holes.forEach(h=>{ clearTimeout(h.hideTimeout); h.critterEl.classList.remove('up'); h.occupied=false; });
+  best = Math.max(best, score);
+  updateHud();
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `<h1>⏱️ Temps écoulé !</h1><p>Score : <strong>${score}</strong></p><p>Record : <strong>${best}</strong></p><button class="btn" id="playBtn2">Rejouer</button>`;
+  document.getElementById('playBtn2').addEventListener('click', startGame);
+}
+
+document.getElementById('playBtn').addEventListener('click', startGame);
+updateHud();
+</script>
+</body>
+</html>

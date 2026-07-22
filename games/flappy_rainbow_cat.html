@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Flappy Rainbow Cat</title>
+<style>
+  :root{
+    --sky-top:#0b1026;
+    --sky-bottom:#2a1a5e;
+    --star:#ffffff;
+    --ground:#3a2a6d;
+    --pipe:#4dd0e1;
+    --pipe-dark:#26a69a;
+    --text:#ffffff;
+    --accent:#ff5fa2;
+  }
+  html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background:radial-gradient(ellipse at top, var(--sky-bottom), var(--sky-top));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Trebuchet MS', system-ui, sans-serif;
+    overflow:hidden;
+  }
+  #wrap{
+    position:relative;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+    border-radius:12px;
+    overflow:hidden;
+    border:3px solid rgba(255,255,255,0.15);
+  }
+  canvas{
+    display:block;
+    background:linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+    touch-action:none;
+  }
+  #hud{
+    position:absolute;
+    top:14px;
+    left:0;
+    right:0;
+    text-align:center;
+    color:var(--text);
+    font-size:32px;
+    font-weight:bold;
+    text-shadow:0 2px 8px rgba(0,0,0,0.6);
+    pointer-events:none;
+    user-select:none;
+  }
+  #overlay{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    color:white;
+    text-align:center;
+    background:rgba(10,8,30,0.55);
+    backdrop-filter:blur(2px);
+    padding:20px;
+    box-sizing:border-box;
+  }
+  #overlay h1{
+    margin:0 0 8px 0;
+    font-size:30px;
+    background:linear-gradient(90deg,#ff5f6d,#ffc371,#8fff5f,#5fdcff,#a15fff);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  #overlay p{
+    margin:4px 0;
+    font-size:15px;
+    opacity:0.9;
+  }
+  #playBtn{
+    margin-top:16px;
+    padding:12px 26px;
+    font-size:18px;
+    font-weight:bold;
+    color:white;
+    background:linear-gradient(90deg,var(--accent),#7a5fff);
+    border:none;
+    border-radius:30px;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(255,95,162,0.5);
+  }
+  #playBtn:active{ transform:scale(0.97); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="400" height="600"></canvas>
+  <div id="hud">0</div>
+  <div id="overlay">
+    <h1>🌈 Flappy Rainbow Cat 🐱</h1>
+    <p>Clique, tape ou appuie sur ESPACE pour voler</p>
+    <p>Évite les tuyaux et laisse une traînée arc-en-ciel derrière toi !</p>
+    <button id="playBtn">Jouer</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const hud = document.getElementById('hud');
+const overlay = document.getElementById('overlay');
+const playBtn = document.getElementById('playBtn');
+
+// ---------- Etat du jeu ----------
+let state = 'ready'; // ready | playing | dead
+let frame = 0;
+let score = 0;
+let best = 0;
+
+const cat = {
+  x: 90,
+  y: H/2,
+  w: 42,
+  h: 30,
+  vy: 0,
+  gravity: 0.45,
+  flap: -8,
+  rotation: 0
+};
+
+let trail = []; // segments de la traînée arc-en-ciel
+let pipes = [];
+const pipeGap = 150;
+const pipeWidth = 62;
+const pipeSpeed = 2.6;
+let pipeTimer = 0;
+
+const groundHeight = 70;
+let groundOffset = 0;
+
+const stars = [];
+for(let i=0;i<60;i++){
+  stars.push({
+    x: Math.random()*W,
+    y: Math.random()*(H-groundHeight),
+    r: Math.random()*1.6+0.4,
+    tw: Math.random()*Math.PI*2
+  });
+}
+
+function resetGame(){
+  cat.y = H/2;
+  cat.vy = 0;
+  cat.rotation = 0;
+  trail = [];
+  pipes = [];
+  pipeTimer = 0;
+  score = 0;
+  frame = 0;
+  hud.textContent = '0';
+}
+
+function addPipe(){
+  const minTop = 50;
+  const maxTop = H - groundHeight - pipeGap - 50;
+  const top = Math.random()*(maxTop-minTop)+minTop;
+  pipes.push({ x: W+20, top: top, passed:false });
+}
+
+function flap(){
+  if(state === 'ready'){
+    startGame();
+  }
+  if(state === 'playing'){
+    cat.vy = cat.flap;
+  }
+  if(state === 'dead'){
+    // ignore, must press play
+  }
+}
+
+function startGame(){
+  resetGame();
+  state = 'playing';
+  overlay.classList.add('hidden');
+}
+
+function endGame(){
+  state = 'dead';
+  best = Math.max(best, score);
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <h1>💥 Aïe !</h1>
+    <p>Score : <strong>${score}</strong></p>
+    <p>Meilleur score : <strong>${best}</strong></p>
+    <button id="playBtn">Rejouer</button>
+  `;
+  document.getElementById('playBtn').addEventListener('click', startGame);
+}
+
+// ---------- Dessin du chat arc-en-ciel (pixel art fait main, personnage original) ----------
+function drawCat(x, y, rotation){
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+
+  const s = 3; // taille pixel
+
+  // corps gris pixelisé, style "pop-tart" générique (non issu d'une image existante)
+  const body = [
+    "  RRRRRRRRRRRR  ",
+    " RRRRRRRRRRRRRR ",
+    "RRPPPPPPPPPPPPRR",
+    "RPPPPPPPPPPPPPPR",
+    "RPGGGGGGGGGGGGPR",
+    "RPGGGGGGGGGGGGPR",
+    "RPPPPPPPPPPPPPPR",
+    " RRRRRRRRRRRRRR ",
+    "  RRRRRRRRRRRR  "
+  ];
+  const palette = {
+    R:'#e8558a', P:'#ffd1e6', G:'#8fd6ff'
+  };
+  const offsetX = -body[0].length*s/2;
+  const offsetY = -body.length*s/2;
+  for(let r=0;r<body.length;r++){
+    for(let c=0;c<body[r].length;c++){
+      const ch = body[r][c];
+      if(ch===' ') continue;
+      ctx.fillStyle = palette[ch];
+      ctx.fillRect(offsetX+c*s, offsetY+r*s, s, s);
+    }
+  }
+
+  // tête de chat grise
+  ctx.fillStyle = '#c9c9d1';
+  ctx.fillRect(offsetX+40, offsetY-6, 16, 16);
+  // oreilles
+  ctx.beginPath();
+  ctx.moveTo(offsetX+40, offsetY-6);
+  ctx.lineTo(offsetX+44, offsetY-16);
+  ctx.lineTo(offsetX+48, offsetY-6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(offsetX+48, offsetY-6);
+  ctx.lineTo(offsetX+52, offsetY-16);
+  ctx.lineTo(offsetX+56, offsetY-6);
+  ctx.closePath();
+  ctx.fill();
+  // interieur oreilles
+  ctx.fillStyle = '#ff9ec4';
+  ctx.beginPath();
+  ctx.moveTo(offsetX+42, offsetY-7);
+  ctx.lineTo(offsetX+44, offsetY-13);
+  ctx.lineTo(offsetX+46, offsetY-7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(offsetX+50, offsetY-7);
+  ctx.lineTo(offsetX+52, offsetY-13);
+  ctx.lineTo(offsetX+54, offsetY-7);
+  ctx.closePath();
+  ctx.fill();
+
+  // yeux
+  ctx.fillStyle = '#222';
+  ctx.fillRect(offsetX+44, offsetY-1, 2, 2);
+  ctx.fillRect(offsetX+51, offsetY-1, 2, 2);
+  // joues roses
+  ctx.fillStyle = '#ffb3d1';
+  ctx.fillRect(offsetX+41, offsetY+3, 3, 2);
+  ctx.fillRect(offsetX+53, offsetY+3, 3, 2);
+  // bouche
+  ctx.fillStyle = '#222';
+  ctx.fillRect(offsetX+47, offsetY+4, 2, 1);
+
+  // pattes
+  ctx.fillStyle = '#c9c9d1';
+  ctx.fillRect(offsetX+6, offsetY+27, 6, 6);
+  ctx.fillRect(offsetX+34, offsetY+27, 6, 6);
+
+  ctx.restore();
+}
+
+function drawTrail(){
+  for(let i=0;i<trail.length;i++){
+    const seg = trail[i];
+    const alpha = seg.life / seg.maxLife;
+    ctx.save();
+    ctx.globalAlpha = Math.max(alpha, 0);
+    ctx.fillStyle = seg.color;
+    ctx.fillRect(seg.x, seg.y, seg.w, seg.h);
+    ctx.restore();
+  }
+}
+
+const rainbowColors = ['#ff5f6d','#ffc371','#f9f871','#8fff5f','#5fdcff','#a15fff'];
+
+function updateTrail(){
+  if(state === 'playing'){
+    // ajoute une nouvelle bande arc-en-ciel verticale derrière le chat
+    const bandWidth = 6;
+    const bandHeight = 26;
+    for(let i=0;i<rainbowColors.length;i++){
+      trail.push({
+        x: cat.x - 26 - bandWidth,
+        y: cat.y - bandHeight/2 + i*(bandHeight/rainbowColors.length),
+        w: bandWidth,
+        h: bandHeight/rainbowColors.length + 1,
+        color: rainbowColors[i],
+        life: 60,
+        maxLife: 60,
+        vx: -pipeSpeed
+      });
+    }
+  }
+  for(let i=trail.length-1;i>=0;i--){
+    const seg = trail[i];
+    seg.x += seg.vx;
+    seg.life -= 1.4;
+    if(seg.life<=0 || seg.x < -20){
+      trail.splice(i,1);
+    }
+  }
+}
+
+function drawBackground(){
+  // etoiles scintillantes
+  for(const st of stars){
+    st.tw += 0.03;
+    const a = 0.5 + Math.sin(st.tw)*0.5;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(st.x, st.y, st.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawGround(){
+  ctx.fillStyle = '#241a4d';
+  ctx.fillRect(0, H-groundHeight, W, groundHeight);
+  ctx.fillStyle = '#2f2266';
+  const stripeW = 30;
+  for(let x=-stripeW; x<W+stripeW; x+=stripeW){
+    ctx.fillRect(x+groundOffset, H-groundHeight, stripeW/2, 12);
+  }
+}
+
+function drawPipes(){
+  for(const p of pipes){
+    // tuyau du haut
+    const grad = ctx.createLinearGradient(p.x,0,p.x+pipeWidth,0);
+    grad.addColorStop(0, '#26a69a');
+    grad.addColorStop(0.5, '#80f0e0');
+    grad.addColorStop(1, '#26a69a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(p.x, 0, pipeWidth, p.top);
+    ctx.fillRect(p.x-4, p.top-18, pipeWidth+8, 18);
+
+    // tuyau du bas
+    const bottomY = p.top + pipeGap;
+    ctx.fillRect(p.x, bottomY, pipeWidth, H-groundHeight-bottomY);
+    ctx.fillRect(p.x-4, bottomY, pipeWidth+8, 18);
+  }
+}
+
+function rectsOverlap(ax,ay,aw,ah,bx,by,bw,bh){
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+
+function update(){
+  frame++;
+
+  if(state === 'playing'){
+    cat.vy += cat.gravity;
+    cat.y += cat.vy;
+    cat.rotation = Math.max(-0.5, Math.min(1.1, cat.vy/12));
+
+    pipeTimer++;
+    if(pipeTimer > 95){
+      pipeTimer = 0;
+      addPipe();
+    }
+    for(const p of pipes){
+      p.x -= pipeSpeed;
+      if(!p.passed && p.x+pipeWidth < cat.x){
+        p.passed = true;
+        score++;
+        hud.textContent = score;
+      }
+    }
+    pipes = pipes.filter(p => p.x > -pipeWidth-10);
+
+    groundOffset -= pipeSpeed;
+    if(groundOffset < -30) groundOffset = 0;
+
+    // collisions
+    const catBox = { x: cat.x-cat.w/2+6, y: cat.y-cat.h/2+4, w: cat.w-12, h: cat.h-8 };
+    if(cat.y + cat.h/2 > H - groundHeight || cat.y - cat.h/2 < 0){
+      endGame();
+    }
+    for(const p of pipes){
+      if(rectsOverlap(catBox.x,catBox.y,catBox.w,catBox.h, p.x,0,pipeWidth,p.top) ||
+         rectsOverlap(catBox.x,catBox.y,catBox.w,catBox.h, p.x,p.top+pipeGap,pipeWidth,H)){
+        endGame();
+      }
+    }
+  }
+
+  updateTrail();
+}
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawBackground();
+  drawTrail();
+  drawPipes();
+  drawGround();
+  drawCat(cat.x, cat.y, cat.rotation);
+}
+
+function loop(){
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ---------- Contrôles ----------
+window.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space'){ e.preventDefault(); flap(); }
+});
+canvas.addEventListener('mousedown', flap);
+canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); flap(); }, {passive:false});
+playBtn.addEventListener('click', startGame);
+
+resetGame();
+render();
+loop();
+</script>
+</body>
+</html>

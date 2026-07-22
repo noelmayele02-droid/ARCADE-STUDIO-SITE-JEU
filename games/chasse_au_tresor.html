@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Chasse au Trésor : Attention aux Trous !</title>
+<style>
+  :root{
+    --accent:#ff5fa2;
+    --accent2:#7a5fff;
+  }
+  html,body{
+    margin:0;
+    height:100%;
+    background:radial-gradient(ellipse at top, #2a1a5e, #0b1026);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Trebuchet MS', system-ui, sans-serif;
+    overflow:hidden;
+  }
+  #wrap{
+    position:relative;
+    border-radius:12px;
+    overflow:hidden;
+    border:3px solid rgba(255,255,255,0.15);
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  canvas{
+    display:block;
+    background:#20163f;
+    touch-action:none;
+  }
+  #hud{
+    position:absolute;
+    top:10px;
+    left:14px;
+    right:14px;
+    display:flex;
+    justify-content:space-between;
+    color:#fff;
+    font-size:15px;
+    font-weight:bold;
+    text-shadow:0 2px 6px rgba(0,0,0,0.6);
+    pointer-events:none;
+    user-select:none;
+  }
+  #overlay{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    color:white;
+    text-align:center;
+    background:rgba(10,8,30,0.62);
+    backdrop-filter:blur(2px);
+    padding:20px;
+    box-sizing:border-box;
+  }
+  #overlay h1{
+    margin:0 0 8px 0;
+    font-size:24px;
+    background:linear-gradient(90deg,#ff5f6d,#ffc371,#8fff5f,#5fdcff,#a15fff);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  #overlay p{ margin:4px 0; font-size:13px; opacity:0.9; }
+  .btn{
+    margin-top:16px;
+    padding:12px 26px;
+    font-size:18px;
+    font-weight:bold;
+    color:white;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    border:none;
+    border-radius:30px;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(255,95,162,0.5);
+  }
+  .btn:active{ transform:scale(0.97); }
+  .hidden{ display:none !important; }
+  #mobileControls{
+    position:absolute;
+    bottom:10px;
+    right:10px;
+    display:grid;
+    grid-template-columns:repeat(3,44px);
+    grid-template-rows:repeat(3,44px);
+    gap:4px;
+    pointer-events:none;
+  }
+  .padBtn{
+    pointer-events:auto;
+    border-radius:10px;
+    background:rgba(255,255,255,0.14);
+    border:2px solid rgba(255,255,255,0.25);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:18px;
+    user-select:none;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="560" height="380"></canvas>
+  <div id="hud">
+    <span id="scoreLabel">Score : 0</span>
+    <span id="levelLabel">Niveau 1</span>
+    <span id="coinsLabel">Pièces : 0/0</span>
+    <span id="livesLabel">❤️❤️❤️</span>
+  </div>
+  <div id="mobileControls">
+    <div></div><div class="padBtn" id="up">▲</div><div></div>
+    <div class="padBtn" id="left">◀</div><div></div><div class="padBtn" id="right">▶</div>
+    <div></div><div class="padBtn" id="down">▼</div><div></div>
+  </div>
+  <div id="overlay">
+    <h1>🐱 Chasse au Trésor</h1>
+    <p>Flèches ou ZQSD/WASD pour bouger</p>
+    <p>Ramasse toutes les pièces ✨</p>
+    <p>Évite les monstres 👹 et ne tombe pas dans les trous 🕳️</p>
+    <p>Astuce : tu peux attirer un monstre dans un trou pour t'en débarrasser !</p>
+    <button class="btn" id="playBtn">Jouer</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const overlay = document.getElementById('overlay');
+const scoreLabel = document.getElementById('scoreLabel');
+const levelLabel = document.getElementById('levelLabel');
+const coinsLabel = document.getElementById('coinsLabel');
+const livesLabel = document.getElementById('livesLabel');
+
+let state = 'ready'; // ready | playing | dead | levelTransition
+let score = 0;
+let level = 1;
+let lives = 3;
+const MARGIN = 28;
+
+const player = {
+  x: W/2, y: H/2, r: 14,
+  speed: 3.3,
+  invuln: 0,
+  startX: W/2, startY: H/2
+};
+
+let holes = [];
+let coins = [];
+let monsters = [];
+let particles = [];
+
+const rainbowColors = ['#ff5f6d','#ffc371','#f9f871','#8fff5f','#5fdcff','#a15fff'];
+
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function dist(ax,ay,bx,by){ return Math.hypot(ax-bx, ay-by); }
+
+function generateLevel(){
+  holes = [];
+  coins = [];
+
+  const holeCount = 5 + Math.min(level, 5);
+  let attempts = 0;
+  while(holes.length < holeCount && attempts < 400){
+    attempts++;
+    const hx = rand(MARGIN+40, W-MARGIN-40);
+    const hy = rand(MARGIN+40, H-MARGIN-40);
+    const hr = rand(22,30);
+    if(dist(hx,hy, player.startX, player.startY) < 90) continue;
+    let ok = true;
+    for(const h of holes){
+      if(dist(hx,hy,h.x,h.y) < hr+h.r+50){ ok=false; break; }
+    }
+    if(ok) holes.push({x:hx,y:hy,r:hr});
+  }
+
+  const coinCount = 16 + level*2;
+  attempts = 0;
+  while(coins.length < coinCount && attempts < 800){
+    attempts++;
+    const cx2 = rand(MARGIN+16, W-MARGIN-16);
+    const cy2 = rand(MARGIN+16, H-MARGIN-16);
+    if(dist(cx2,cy2, player.startX, player.startY) < 50) continue;
+    let ok = true;
+    for(const h of holes){
+      if(dist(cx2,cy2,h.x,h.y) < h.r+22){ ok=false; break; }
+    }
+    if(ok){
+      for(const c of coins){
+        if(dist(cx2,cy2,c.x,c.y) < 22){ ok=false; break; }
+      }
+    }
+    if(ok) coins.push({x:cx2,y:cy2,r:7,spin:Math.random()*Math.PI*2});
+  }
+
+  monsters = [];
+  const monsterCount = Math.min(1+Math.floor((level-1)/1), 4);
+  for(let i=0;i<monsterCount;i++){
+    spawnMonster();
+  }
+  updateHud();
+}
+
+function spawnMonster(){
+  let mx,my,tries=0;
+  do{
+    mx = rand(MARGIN+20, W-MARGIN-20);
+    my = rand(MARGIN+20, H-MARGIN-20);
+    tries++;
+  } while(dist(mx,my,player.x,player.y) < 160 && tries < 50);
+  monsters.push({
+    x:mx, y:my, r:15,
+    speed: 1.5 + level*0.15,
+    alive:true,
+    respawnTimer:0,
+    wobble: Math.random()*Math.PI*2,
+    colorIndex: Math.floor(Math.random()*rainbowColors.length)
+  });
+}
+
+function updateHud(){
+  scoreLabel.textContent = 'Score : ' + score;
+  levelLabel.textContent = 'Niveau ' + level;
+  coinsLabel.textContent = 'Pièces : ' + (coinsTotal()-coins.length) + '/' + coinsTotal();
+  livesLabel.textContent = '❤️'.repeat(Math.max(lives,0));
+}
+let totalCoinsCache = 0;
+function coinsTotal(){ return totalCoinsCache; }
+
+function resetGame(){
+  score = 0;
+  level = 1;
+  lives = 3;
+  player.x = player.startX;
+  player.y = player.startY;
+  player.invuln = 90;
+  generateLevel();
+  totalCoinsCache = coins.length;
+  updateHud();
+}
+
+function startGame(){
+  resetGame();
+  state = 'playing';
+  overlay.classList.add('hidden');
+}
+
+function loseLife(){
+  if(player.invuln > 0) return;
+  lives--;
+  player.invuln = 100;
+  spawnParticles(player.x, player.y, '#ff5f6d');
+  player.x = player.startX;
+  player.y = player.startY;
+  updateHud();
+  if(lives <= 0){
+    endGame();
+  }
+}
+
+function endGame(){
+  state = 'dead';
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <h1>💀 Attrapé !</h1>
+    <p>Score final : <strong>${score}</strong></p>
+    <p>Niveau atteint : ${level}</p>
+    <button class="btn" id="playBtn2">Rejouer</button>`;
+  document.getElementById('playBtn2').addEventListener('click', startGame);
+}
+
+function nextLevel(){
+  level++;
+  score += 50;
+  player.x = player.startX;
+  player.y = player.startY;
+  player.invuln = 90;
+  generateLevel();
+  totalCoinsCache = coins.length;
+  updateHud();
+}
+
+function spawnParticles(x,y,color){
+  for(let i=0;i<14;i++){
+    const a = Math.random()*Math.PI*2;
+    const sp = rand(1,4);
+    particles.push({ x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:30, color });
+  }
+}
+
+// ---------- Contrôles ----------
+const keys = {};
+window.addEventListener('keydown', (e)=>{
+  keys[e.code] = true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  if(state==='ready' && e.code==='Space') startGame();
+});
+window.addEventListener('keyup', (e)=>{ keys[e.code] = false; });
+
+function bindHold(id, key){
+  const el = document.getElementById(id);
+  const down = (e)=>{ e.preventDefault(); keys[key]=true; };
+  const up = (e)=>{ e.preventDefault(); keys[key]=false; };
+  el.addEventListener('mousedown', down);
+  el.addEventListener('mouseup', up);
+  el.addEventListener('mouseleave', up);
+  el.addEventListener('touchstart', down, {passive:false});
+  el.addEventListener('touchend', up, {passive:false});
+}
+bindHold('up','ArrowUp');
+bindHold('down','ArrowDown');
+bindHold('left','ArrowLeft');
+bindHold('right','ArrowRight');
+
+document.getElementById('playBtn').addEventListener('click', startGame);
+
+// ---------- Update ----------
+function update(){
+  if(state !== 'playing') return;
+
+  let mx=0,my=0;
+  if(keys['ArrowUp']||keys['KeyW']||keys['KeyZ']) my -= 1;
+  if(keys['ArrowDown']||keys['KeyS']) my += 1;
+  if(keys['ArrowLeft']||keys['KeyA']||keys['KeyQ']) mx -= 1;
+  if(keys['ArrowRight']||keys['KeyD']) mx += 1;
+  if(mx!==0||my!==0){
+    const len = Math.hypot(mx,my);
+    player.x += (mx/len)*player.speed;
+    player.y += (my/len)*player.speed;
+  }
+  player.x = Math.max(MARGIN, Math.min(W-MARGIN, player.x));
+  player.y = Math.max(MARGIN, Math.min(H-MARGIN, player.y));
+  if(player.invuln>0) player.invuln--;
+
+  // pieces
+  for(let i=coins.length-1;i>=0;i--){
+    const c = coins[i];
+    c.spin += 0.15;
+    if(dist(player.x,player.y,c.x,c.y) < player.r+c.r){
+      coins.splice(i,1);
+      score += 10;
+      spawnParticles(c.x,c.y,'#ffe066');
+      updateHud();
+    }
+  }
+  if(coins.length===0){
+    state = 'levelTransition';
+    setTimeout(()=>{ nextLevel(); state='playing'; }, 900);
+  }
+
+  // trous - joueur
+  if(player.invuln<=0){
+    for(const h of holes){
+      if(dist(player.x,player.y,h.x,h.y) < h.r-4){
+        loseLife();
+        break;
+      }
+    }
+  }
+
+  // monstres
+  for(const m of monsters){
+    if(!m.alive){
+      m.respawnTimer--;
+      if(m.respawnTimer<=0){
+        m.alive = true;
+        do{
+          m.x = rand(MARGIN+20,W-MARGIN-20);
+          m.y = rand(MARGIN+20,H-MARGIN-20);
+        } while(dist(m.x,m.y,player.x,player.y)<150);
+      }
+      continue;
+    }
+    m.wobble += 0.1;
+    const dx = player.x-m.x, dy = player.y-m.y;
+    const d = Math.hypot(dx,dy) || 1;
+    m.x += (dx/d)*m.speed;
+    m.y += (dy/d)*m.speed;
+    m.x = Math.max(MARGIN,Math.min(W-MARGIN,m.x));
+    m.y = Math.max(MARGIN,Math.min(H-MARGIN,m.y));
+
+    // tombe dans un trou -> disparait temporairement
+    for(const h of holes){
+      if(dist(m.x,m.y,h.x,h.y) < h.r-4){
+        m.alive = false;
+        m.respawnTimer = 220;
+        spawnParticles(m.x,m.y,'#a15fff');
+        score += 5;
+        updateHud();
+        break;
+      }
+    }
+
+    if(m.alive && player.invuln<=0 && dist(player.x,player.y,m.x,m.y) < player.r+m.r-4){
+      loseLife();
+    }
+  }
+
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.vx*=0.94; p.vy*=0.94; p.life--;
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+
+// ---------- Dessin ----------
+function drawArena(){
+  ctx.fillStyle = '#241a4d';
+  ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = MARGIN*0.6;
+  ctx.strokeRect(MARGIN*0.3,MARGIN*0.3,W-MARGIN*0.6,H-MARGIN*0.6);
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  for(let x=0;x<W;x+=28) ctx.fillRect(x,0,1,H);
+  for(let y=0;y<H;y+=28) ctx.fillRect(0,y,W,1);
+}
+
+function drawHoles(){
+  for(const h of holes){
+    const grad = ctx.createRadialGradient(h.x,h.y,2,h.x,h.y,h.r);
+    grad.addColorStop(0,'#000000');
+    grad.addColorStop(0.7,'#0a0a14');
+    grad.addColorStop(1,'rgba(10,10,20,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(h.x,h.y,h.r,0,Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(h.x,h.y,h.r-2,0,Math.PI*2);
+    ctx.stroke();
+  }
+}
+
+function drawCoins(){
+  for(const c of coins){
+    ctx.save();
+    ctx.translate(c.x,c.y);
+    const squish = Math.abs(Math.cos(c.spin));
+    ctx.scale(squish*0.8+0.2, 1);
+    const grad = ctx.createRadialGradient(-2,-2,1,0,0,c.r);
+    grad.addColorStop(0,'#fff7c2');
+    grad.addColorStop(0.5,'#ffd84d');
+    grad.addColorStop(1,'#e8a800');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0,0,c.r,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawPlayer(){
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  if(player.invuln>0 && Math.floor(player.invuln/5)%2===0){ ctx.globalAlpha = 0.35; }
+  ctx.fillStyle = '#e8558a';
+  ctx.beginPath();
+  ctx.ellipse(0,3,15,13,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-9,-7); ctx.lineTo(-5,-18); ctx.lineTo(-1,-7); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(1,-7); ctx.lineTo(5,-18); ctx.lineTo(9,-7); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffb3d1';
+  ctx.beginPath();
+  ctx.moveTo(-7,-6); ctx.lineTo(-5,-13); ctx.lineTo(-3,-6); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(3,-6); ctx.lineTo(5,-13); ctx.lineTo(7,-6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(-5,-1,1.8,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5,-1,1.8,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawMonster(m){
+  if(!m.alive) return;
+  ctx.save();
+  ctx.translate(m.x, m.y + Math.sin(m.wobble)*2);
+  ctx.fillStyle = rainbowColors[m.colorIndex];
+  ctx.beginPath();
+  ctx.arc(0,0,m.r,Math.PI,0);
+  ctx.lineTo(m.r,m.r*0.6);
+  for(let i=0;i<4;i++){
+    ctx.lineTo(m.r - (i+0.5)*(m.r*2/4), i%2===0 ? m.r*0.9 : m.r*0.5);
+  }
+  ctx.lineTo(-m.r, m.r*0.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-5,-2,4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5,-2,4,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(-5,-2,2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5,-2,2,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawParticles(){
+  for(const p of particles){
+    ctx.save();
+    ctx.globalAlpha = Math.max(p.life/30,0);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,3,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawArena();
+  drawHoles();
+  drawCoins();
+  drawParticles();
+  for(const m of monsters) drawMonster(m);
+  drawPlayer();
+
+  if(state==='levelTransition'){
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 26px Trebuchet MS';
+    ctx.textAlign = 'center';
+    ctx.fillText('Niveau ' + level + ' terminé !', W/2, H/2);
+  }
+}
+
+function loop(){
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+render();
+loop();
+</script>
+</body>
+</html>

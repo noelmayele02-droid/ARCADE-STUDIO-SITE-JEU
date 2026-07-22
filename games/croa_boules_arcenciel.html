@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Croa ! Boules Arc-en-ciel</title>
+<style>
+  :root{
+    --sky-top:#0b1026;
+    --sky-bottom:#1c3b2e;
+    --accent:#ff5fa2;
+    --accent2:#7a5fff;
+  }
+  html,body{
+    margin:0;
+    height:100%;
+    background:radial-gradient(ellipse at top, #234a37, #0b1026);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Trebuchet MS', system-ui, sans-serif;
+    overflow:hidden;
+  }
+  #wrap{
+    position:relative;
+    border-radius:12px;
+    overflow:hidden;
+    border:3px solid rgba(255,255,255,0.15);
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  canvas{
+    display:block;
+    background:radial-gradient(ellipse at center, #1e4636, #0b2118);
+    touch-action:none;
+    cursor:crosshair;
+  }
+  #hud{
+    position:absolute;
+    top:10px;
+    left:14px;
+    right:14px;
+    display:flex;
+    justify-content:space-between;
+    color:#fff;
+    font-size:16px;
+    font-weight:bold;
+    text-shadow:0 2px 6px rgba(0,0,0,0.6);
+    pointer-events:none;
+    user-select:none;
+  }
+  #overlay{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    color:white;
+    text-align:center;
+    background:rgba(6,15,10,0.62);
+    backdrop-filter:blur(2px);
+    padding:20px;
+    box-sizing:border-box;
+  }
+  #overlay h1{
+    margin:0 0 8px 0;
+    font-size:26px;
+    background:linear-gradient(90deg,#ff5f6d,#ffc371,#8fff5f,#5fdcff,#a15fff);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  #overlay p{
+    margin:4px 0;
+    font-size:14px;
+    opacity:0.9;
+  }
+  .btn{
+    margin-top:16px;
+    padding:12px 26px;
+    font-size:18px;
+    font-weight:bold;
+    color:white;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    border:none;
+    border-radius:30px;
+    cursor:pointer;
+    box-shadow:0 6px 18px rgba(255,95,162,0.5);
+  }
+  .btn:active{ transform:scale(0.97); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="440" height="600"></canvas>
+  <div id="hud">
+    <span id="scoreLabel">Score : 0</span>
+    <span id="levelLabel">Niveau 1</span>
+  </div>
+  <div id="overlay">
+    <h1>🐸 Croa ! Boules Arc-en-ciel</h1>
+    <p>Bouge la souris (ou ton doigt) pour viser</p>
+    <p>Clique ou tape pour tirer une boule</p>
+    <p>Fais des groupes de 3 boules de la même couleur pour les faire exploser avant qu'elles n'atteignent le trou !</p>
+    <button class="btn" id="playBtn">Jouer</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const overlay = document.getElementById('overlay');
+const scoreLabel = document.getElementById('scoreLabel');
+const levelLabel = document.getElementById('levelLabel');
+
+const cx = W/2, cy = H/2 - 10;
+
+// ---------- Palette ----------
+const COLORS = ['#ff5f6d','#ffc371','#8fff5f','#5fdcff','#a15fff'];
+
+// ---------- Construction du chemin en spirale ----------
+const TURNS = 2.15;
+const MAX_R = 250;
+const MIN_R = 46;
+const SAMPLES = 900;
+
+let pathPts = [];
+let cumDist = [];
+let totalLength = 0;
+
+function buildPath(){
+  pathPts = [];
+  for(let i=0;i<=SAMPLES;i++){
+    const t = i/SAMPLES;
+    const angle = t*TURNS*Math.PI*2 - Math.PI/2;
+    const r = MAX_R - t*(MAX_R-MIN_R);
+    pathPts.push({ x: cx + r*Math.cos(angle), y: cy + r*Math.sin(angle) });
+  }
+  cumDist = [0];
+  for(let i=1;i<pathPts.length;i++){
+    const dx = pathPts[i].x-pathPts[i-1].x;
+    const dy = pathPts[i].y-pathPts[i-1].y;
+    cumDist.push(cumDist[i-1] + Math.hypot(dx,dy));
+  }
+  totalLength = cumDist[cumDist.length-1];
+}
+buildPath();
+
+function posAtS(s){
+  s = Math.max(0, Math.min(totalLength, s));
+  // recherche binaire
+  let lo=0, hi=cumDist.length-1;
+  while(lo<hi){
+    const mid = (lo+hi)>>1;
+    if(cumDist[mid] < s) lo = mid+1; else hi = mid;
+  }
+  const i = Math.max(1,lo);
+  const d0 = cumDist[i-1], d1 = cumDist[i];
+  const p0 = pathPts[i-1], p1 = pathPts[i];
+  const f = d1>d0 ? (s-d0)/(d1-d0) : 0;
+  return { x: p0.x+(p1.x-p0.x)*f, y: p0.y+(p1.y-p0.y)*f };
+}
+
+function nearestSOnPath(x,y){
+  let best = 0, bestD = Infinity;
+  for(let i=0;i<pathPts.length;i+=2){
+    const dx = pathPts[i].x-x, dy = pathPts[i].y-y;
+    const d = dx*dx+dy*dy;
+    if(d<bestD){ bestD=d; best=cumDist[i]; }
+  }
+  return best;
+}
+
+// ---------- Etat du jeu ----------
+const BALL_R = 13;
+const SPACING = BALL_R*2;
+let state = 'ready'; // ready | playing | dead | win
+let score = 0;
+let level = 1;
+let chain = []; // {s, color}
+let projectiles = []; // {x,y,vx,vy,color}
+let creepSpeed = 0.42;
+let combo = 0;
+
+let aimAngle = -Math.PI/2;
+let currentColor = randColor();
+let nextColor = randColor();
+
+function randColor(){
+  return COLORS[Math.floor(Math.random()*COLORS.length)];
+}
+
+function colorsInChain(){
+  const set = new Set(chain.map(b=>b.color));
+  return set.size ? Array.from(set) : COLORS;
+}
+
+function pickSmartColor(){
+  const avail = colorsInChain();
+  return avail[Math.floor(Math.random()*avail.length)];
+}
+
+function buildChain(n){
+  chain = [];
+  for(let i=0;i<n;i++){
+    chain.push({ s: (n-i)*SPACING, color: randColor() });
+  }
+}
+
+function resetGame(){
+  score = 0;
+  level = 1;
+  combo = 0;
+  projectiles = [];
+  buildChain(12);
+  currentColor = pickSmartColor();
+  nextColor = pickSmartColor();
+  updateHud();
+}
+
+function updateHud(){
+  scoreLabel.textContent = 'Score : ' + score;
+  levelLabel.textContent = 'Niveau ' + level;
+}
+
+function startGame(){
+  resetGame();
+  state = 'playing';
+  overlay.classList.add('hidden');
+}
+
+function nextLevel(){
+  level++;
+  creepSpeed += 0.08;
+  projectiles = [];
+  buildChain(Math.min(12+level*2, 26));
+  currentColor = pickSmartColor();
+  nextColor = pickSmartColor();
+  updateHud();
+}
+
+function endGame(won){
+  state = won ? 'win' : 'dead';
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = won ?
+    `<h1>🌟 Niveau nettoyé !</h1><p>Score : <strong>${score}</strong></p><button class="btn" id="playBtn2">Continuer</button>` :
+    `<h1>💧 Glou glou...</h1><p>Les boules ont atteint le trou.</p><p>Score final : <strong>${score}</strong></p><button class="btn" id="playBtn2">Rejouer</button>`;
+  document.getElementById('playBtn2').addEventListener('click', ()=>{
+    if(won){ nextLevel(); state='playing'; overlay.classList.add('hidden'); }
+    else { startGame(); }
+  });
+}
+
+// ---------- Resettle : recale la chaîne avec un espacement fixe ----------
+function resettle(){
+  for(let i=1;i<chain.length;i++){
+    chain[i].s = chain[i-1].s - SPACING;
+  }
+}
+
+// ---------- Tir ----------
+function shoot(){
+  if(state !== 'playing') return;
+  const dx = Math.cos(aimAngle), dy = Math.sin(aimAngle);
+  const mouthDist = 26;
+  projectiles.push({
+    x: cx+dx*mouthDist, y: cy+dy*mouthDist,
+    vx: dx*11, vy: dy*11,
+    color: currentColor
+  });
+  currentColor = nextColor;
+  nextColor = pickSmartColor();
+}
+
+function handleHit(proj){
+  if(chain.length === 0){
+    projectiles = projectiles.filter(p=>p!==proj);
+    return;
+  }
+  const sHit = nearestSOnPath(proj.x, proj.y);
+  // trouve l'index d'insertion (chain triee en s decroissant)
+  let idx = chain.length;
+  for(let i=0;i<chain.length;i++){
+    if(chain[i].s < sHit){ idx = i; break; }
+  }
+  chain.splice(idx, 0, { s: sHit, color: proj.color });
+  if(idx === 0){
+    // devient la nouvelle boule de tete : garde son s
+  }
+  resettle();
+  if(idx === 0){
+    chain[0].s = sHit; // reancre la tete a sa vraie position
+    resettle();
+  }
+
+  popMatches(idx);
+  resettle();
+
+  projectiles = projectiles.filter(p=>p!==proj);
+}
+
+function popMatches(startIdx){
+  let idx = startIdx;
+  let popped = false;
+  do{
+    popped = false;
+    const color = chain[idx] ? chain[idx].color : null;
+    if(color==null) break;
+    let left = idx, right = idx;
+    while(left-1>=0 && chain[left-1].color===color) left--;
+    while(right+1<chain.length && chain[right+1].color===color) right++;
+    const runLen = right-left+1;
+    if(runLen>=3){
+      chain.splice(left, runLen);
+      combo++;
+      score += runLen*10*combo;
+      updateHud();
+      idx = left; // pour verifier reaction en chaine
+      popped = true;
+      resettle();
+      if(idx>=chain.length) idx = chain.length-1;
+    } else {
+      combo = 0;
+    }
+  } while(popped && chain.length>0 && idx>=0);
+}
+
+// ---------- Update / Render ----------
+function update(){
+  if(state !== 'playing') return;
+
+  if(chain.length>0){
+    chain[0].s += creepSpeed;
+    resettle();
+    if(chain[0].s >= totalLength){
+      endGame(false);
+      return;
+    }
+  } else {
+    endGame(true);
+    return;
+  }
+
+  for(const p of projectiles){
+    p.x += p.vx; p.y += p.vy;
+  }
+  projectiles = projectiles.filter(p => p.x>-30 && p.x<W+30 && p.y>-30 && p.y<H+30);
+
+  for(const p of [...projectiles]){
+    for(const b of chain){
+      const pos = posAtS(b.s);
+      const dx = pos.x-p.x, dy = pos.y-p.y;
+      if(dx*dx+dy*dy < (BALL_R*1.9)*(BALL_R*1.9)){
+        handleHit(p);
+        break;
+      }
+    }
+  }
+}
+
+function drawPath(){
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = BALL_R*2+6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pathPts[0].x, pathPts[0].y);
+  for(let i=1;i<pathPts.length;i+=4){
+    ctx.lineTo(pathPts[i].x, pathPts[i].y);
+  }
+  ctx.stroke();
+
+  // trou (but)
+  const hole = pathPts[pathPts.length-1];
+  const grad = ctx.createRadialGradient(hole.x,hole.y,2,hole.x,hole.y,22);
+  grad.addColorStop(0,'#000');
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(hole.x, hole.y, 20, 0, Math.PI*2);
+  ctx.fill();
+
+  // entree
+  const enter = pathPts[0];
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.beginPath();
+  ctx.arc(enter.x, enter.y, 5, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawBall(x,y,color,r){
+  const grad = ctx.createRadialGradient(x-r*0.3,y-r*0.3,r*0.15,x,y,r);
+  grad.addColorStop(0,'#ffffff');
+  grad.addColorStop(0.25,color);
+  grad.addColorStop(1,color);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function drawChain(){
+  for(const b of chain){
+    const pos = posAtS(b.s);
+    drawBall(pos.x,pos.y,b.color,BALL_R);
+  }
+}
+
+function drawProjectiles(){
+  for(const p of projectiles){
+    drawBall(p.x,p.y,p.color,BALL_R*0.9);
+  }
+}
+
+function drawFrog(){
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.rotate(aimAngle+Math.PI/2);
+
+  // corps
+  ctx.fillStyle = '#4caf6b';
+  ctx.beginPath();
+  ctx.ellipse(0,4,20,17,0,0,Math.PI*2);
+  ctx.fill();
+
+  // yeux
+  ctx.fillStyle = '#4caf6b';
+  ctx.beginPath(); ctx.arc(-11,-12,8,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11,-12,8,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(-11,-12,3.4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11,-12,3.4,0,Math.PI*2); ctx.fill();
+
+  // bouche / boule chargee
+  drawBall(0,-20,currentColor,BALL_R*0.85);
+  ctx.strokeStyle = '#2e7d4f';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0,-4,10,Math.PI*0.15,Math.PI*0.85);
+  ctx.stroke();
+
+  // taches
+  ctx.fillStyle = '#3f9c5c';
+  ctx.beginPath(); ctx.arc(-8,8,4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(9,10,3,0,Math.PI*2); ctx.fill();
+
+  ctx.restore();
+
+  // prochaine boule (a cote)
+  drawBall(cx+30, cy+34, nextColor, BALL_R*0.7);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '10px Trebuchet MS';
+  ctx.textAlign = 'center';
+  ctx.fillText('suivante', cx+30, cy+52);
+}
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawPath();
+  drawChain();
+  drawProjectiles();
+  drawFrog();
+}
+
+function loop(){
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ---------- Controles ----------
+function updateAim(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX-rect.left, y = clientY-rect.top;
+  aimAngle = Math.atan2(y-cy, x-cx);
+}
+
+canvas.addEventListener('mousemove', (e)=> updateAim(e.clientX, e.clientY));
+canvas.addEventListener('mousedown', (e)=>{ updateAim(e.clientX,e.clientY); shoot(); if(state==='ready') startGame(); });
+canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); const t=e.touches[0]; updateAim(t.clientX,t.clientY); }, {passive:false});
+canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); const t=e.touches[0]; updateAim(t.clientX,t.clientY); shoot(); if(state==='ready') startGame(); }, {passive:false});
+
+document.getElementById('playBtn').addEventListener('click', startGame);
+
+resetGame();
+render();
+loop();
+</script>
+</body>
+</html>

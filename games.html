@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nos jeux — Arcade Studio</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="crt">
+
+<nav class="nav">
+  <a href="index.html" class="brand"><span class="dot"></span> ARCADE STUDIO</a>
+  <button class="navToggle" id="navToggle" aria-label="Menu">☰</button>
+  <ul id="navMenu">
+    <li><a class="link" href="index.html#equipe">Notre équipe</a></li>
+    <li><a class="link" href="games.html">Jouer</a></li>
+    <li id="navAuthSlot" style="display:flex;gap:12px;align-items:center;"></li>
+  </ul>
+</nav>
+
+<header class="wrap section" style="padding-bottom:0;">
+  <p class="eyebrow">// la borne d'arcade</p>
+  <h1 class="display" style="font-size:clamp(18px,2.6vw,26px); margin:10px 0 8px;">Choisis ton jeu</h1>
+  <p style="color:rgba(244,242,255,0.75); max-width:60ch;">
+    Onze jeux faits maison, tous jouables directement dans le navigateur.
+    Clique sur une carte pour lancer la partie.
+  </p>
+</header>
+
+<section class="section wrap" style="padding-bottom:0;">
+  <p class="eyebrow">// action & poursuite</p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); margin-top:16px;">
+
+    <a class="card game-card" href="games/flappy_rainbow_cat.html" target="_blank" rel="noopener" style="--gthumb1:#7a5fff;--gthumb2:#5fdcff;">
+      <div class="thumb">🐱🌈</div>
+      <span class="tag">SOLO</span>
+      <h3>Flappy Rainbow Cat</h3>
+      <p>Vole entre les tuyaux en laissant une traînée arc-en-ciel derrière toi.</p>
+    </a>
+
+    <a class="card game-card" href="games/cosmo_cat_invaders.html" target="_blank" rel="noopener" style="--gthumb1:#ff5fa2;--gthumb2:#7a5fff;">
+      <div class="thumb">🚀🐱</div>
+      <span class="tag">SOLO</span>
+      <h3>Cosmo Cat Invaders</h3>
+      <p>Repousse les vagues d'envahisseurs arc-en-ciel avant qu'ils n'atterrissent.</p>
+    </a>
+
+    <a class="card game-card" href="games/duel_arcenciel.html" target="_blank" rel="noopener" style="--gthumb1:#ff5f6d;--gthumb2:#ffc371;">
+      <div class="thumb">⚔️🐸</div>
+      <span class="tag">1 OU 2 JOUEURS</span>
+      <h3>Duel Arc-en-ciel</h3>
+      <p>Chat contre Grenouille — affronte un ami sur le même clavier ou une IA.</p>
+    </a>
+
+    <a class="card game-card" href="games/chasse_au_tresor.html" target="_blank" rel="noopener" style="--gthumb1:#a15fff;--gthumb2:#ff5fa2;">
+      <div class="thumb">💰🕳️</div>
+      <span class="tag">SOLO</span>
+      <h3>Chasse au Trésor</h3>
+      <p>Ramasse toutes les pièces sans te faire attraper ni tomber dans un trou.</p>
+    </a>
+
+    <a class="card game-card" href="games/cours_toujours.html" target="_blank" rel="noopener" style="--gthumb1:#5fdcff;--gthumb2:#8fff5f;">
+      <div class="thumb">🏃🐱</div>
+      <span class="tag">SOLO</span>
+      <h3>Cours Toujours !</h3>
+      <p>Course infinie : saute les trous (maintiens pour les gros !), évite les monstres.</p>
+    </a>
+
+    <a class="card game-card" href="games/saute_nuages.html" target="_blank" rel="noopener" style="--gthumb1:#5f8bff;--gthumb2:#8fff5f;">
+      <div class="thumb">☁️🐱</div>
+      <span class="tag">SOLO</span>
+      <h3>Saute de Nuage en Nuage</h3>
+      <p>Rebondis toujours plus haut, évite les monstres et ne tombe pas dans le vide.</p>
+    </a>
+
+  </div>
+</section>
+
+<section class="section wrap">
+  <p class="eyebrow">// réflexion & réflexes</p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); margin-top:16px;">
+
+    <a class="card game-card" href="games/croa_boules_arcenciel.html" target="_blank" rel="noopener" style="--gthumb1:#8fff5f;--gthumb2:#5fdcff;">
+      <div class="thumb">🐸🔮</div>
+      <span class="tag">SOLO</span>
+      <h3>Croa ! Boules Arc-en-ciel</h3>
+      <p>Tire des boules colorées pour faire exploser des combos de 3 avant le trou.</p>
+    </a>
+
+    <a class="card game-card" href="games/snake_arcenciel.html" target="_blank" rel="noopener" style="--gthumb1:#ff5f6d;--gthumb2:#f9f871;">
+      <div class="thumb">🐍🌈</div>
+      <span class="tag">SOLO</span>
+      <h3>Snake Arc-en-ciel</h3>
+      <p>Le grand classique : grandis en mangeant, évite les murs et ta propre queue.</p>
+    </a>
+
+    <a class="card game-card" href="games/2048_arcenciel.html" target="_blank" rel="noopener" style="--gthumb1:#ffc371;--gthumb2:#a15fff;">
+      <div class="thumb">🎨🔢</div>
+      <span class="tag">SOLO</span>
+      <h3>2048 Arc-en-ciel</h3>
+      <p>Fusionne les tuiles colorées jusqu'à atteindre le sommet arc-en-ciel.</p>
+    </a>
+
+    <a class="card game-card" href="games/simon_arcenciel.html" target="_blank" rel="noopener" style="--gthumb1:#a15fff;--gthumb2:#5fdcff;">
+      <div class="thumb">🧠✨</div>
+      <span class="tag">SOLO</span>
+      <h3>Simon Arc-en-ciel</h3>
+      <p>Mémorise et reproduis des séquences de couleurs toujours plus longues.</p>
+    </a>
+
+    <a class="card game-card" href="games/tape_chat.html" target="_blank" rel="noopener" style="--gthumb1:#ff5fa2;--gthumb2:#ffc371;">
+      <div class="thumb">🐱🔨</div>
+      <span class="tag">SOLO</span>
+      <h3>Tape-Chat !</h3>
+      <p>Réflexes purs : tape les chats, évite les monstres, 60 secondes chrono.</p>
+    </a>
+
+  </div>
+</section>
+
+<footer>
+  <span>© <span id="year"></span> Arcade Studio</span>
+  <span><a href="index.html">Retour à l'accueil</a></span>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

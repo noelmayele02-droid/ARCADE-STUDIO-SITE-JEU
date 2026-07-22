@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcade Studio — Notre équipe & nos jeux</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="crt">
+
+<nav class="nav">
+  <a href="index.html" class="brand"><span class="dot"></span> ARCADE STUDIO</a>
+  <button class="navToggle" id="navToggle" aria-label="Menu">☰</button>
+  <ul id="navMenu">
+    <li><a class="link" href="index.html#equipe">Notre équipe</a></li>
+    <li><a class="link" href="games.html">Jouer</a></li>
+    <li><a class="link" href="index.html#contact">Contact</a></li>
+    <li id="navAuthSlot" style="display:flex;gap:12px;align-items:center;"></li>
+  </ul>
+</nav>
+
+<!-- ================= HERO ================= -->
+<header class="wrap section">
+  <div class="cabinet">
+    <div class="cabinet-inner">
+      <video class="cabinet-video" autoplay muted loop playsinline>
+        <source src="videos/arcade-bg.mp4" type="video/mp4">
+      </video>
+      <div class="cabinet-overlay"></div>
+      <p class="eyebrow">// insert coin</p>
+      <h1 class="marquee">ARCADE<br>STUDIO</h1>
+      <p class="lead">
+        On est une petite équipe qui fabrique des jeux arcade rétro
+        pleins de couleurs, d'arc-en-ciel et de créatures attachantes —
+        des chats volants, des grenouilles qui gobent des boules, et
+        des monstres qu'il vaut mieux éviter. Tout se joue dans le
+        navigateur, sans rien à installer.
+      </p>
+      <div class="pillRow" style="margin:22px 0;">
+        <span class="pill">11 jeux jouables</span>
+        <span class="pill">100% navigateur</span>
+        <span class="pill">Solo ou à deux</span>
+      </div>
+      <a class="btn btn-primary" href="games.html">▶ Jouer maintenant</a>
+    </div>
+  </div>
+</header>
+
+<!-- ================= APERCU DES JEUX ================= -->
+<section class="section wrap">
+  <p class="eyebrow center">// la ludothèque</p>
+  <h2 class="center" style="font-size:clamp(22px,3.4vw,30px); margin-top:6px; margin-bottom:8px;">
+    11 jeux, un seul univers
+  </h2>
+  <p class="center" style="max-width:60ch; margin:0 auto 30px; color:rgba(244,242,255,0.75);">
+    Du réflexe pur à la stratégie, en solo ou à deux — un aperçu de ce qui t'attend.
+  </p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:14px;">
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">🐱🌈<br>Flappy Cat</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">🚀🐱<br>Cosmo Invaders</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">🐸🔮<br>Croa ! Boules</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">⚔️🐸<br>Duel</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">💰🕳️<br>Chasse au Trésor</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">🏃🐱<br>Cours Toujours</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">☁️🐱<br>Saute-Nuages</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">🐍🌈<br>Snake</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">🎨🔢<br>2048</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">🧠✨<br>Simon</a>
+    <a href="games.html" class="pill center" style="padding:16px 8px; text-decoration:none;">🐱🔨<br>Tape-Chat</a>
+  </div>
+</section>
+
+<!-- ================= A PROPOS ================= -->
+<section class="section wrap">
+  <p class="eyebrow center">// qui on est</p>
+  <h2 class="center" style="font-size:clamp(22px,3.4vw,32px); margin-top:6px;">
+    Une équipe, une passion : des jeux qu'on a envie d'y rejouer nous-mêmes
+  </h2>
+  <p class="center" style="max-width:64ch; margin:14px auto 0; color:rgba(244,242,255,0.8);">
+    Tout est parti d'une idée simple : recréer nos jeux d'arcade préférés,
+    mais avec notre propre univers — arc-en-ciel, chats, grenouilles et
+    monstres inclus. Chaque jeu du site est fait main, testé, et
+    peaufiné par notre petite équipe. On espère que vous prendrez
+    autant de plaisir à y jouer que nous à les construire.
+  </p>
+</section>
+
+<!-- ================= EQUIPE ================= -->
+<section class="section wrap" id="equipe">
+  <p class="eyebrow center">// l'équipe</p>
+  <h2 class="center" style="font-size:clamp(22px,3.4vw,30px); margin-top:6px; margin-bottom:34px;">
+    Derrière les manettes
+  </h2>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+
+    <div class="card team-card">
+      <div class="avatar">
+        <img src="images/team/albert.jpg" alt="Mayele Albert">
+      </div>
+      <h3>MAYELE Albert</h3>
+      <div class="role">Créateur du site & des jeux</div>
+      <p class="bio">Celui qui a conçu et développé le site ainsi que les jeux interactifs.</p>
+    </div>
+
+    <div class="card team-card">
+      <div class="avatar">
+        <img src="images/team/donnel.jpeg" alt="OKILI Donnel" style="object-position: top;">
+      </div>
+      <h3>OKILI Donnel</h3>
+      <div class="role">Responsable des idées & concepts</div>
+      <p class="bio">Celui À l'origine de nombreuses idées créatives, concepts de jeux et suggestions ayant contribué au projet.</p>
+    </div>
+
+    <div class="card team-card">
+      <div class="avatar">
+        <img src="images/team/jessica.jpeg" alt="TCHIKAYA JESSICA">
+      </div>
+      <h3>TCHIKAYA JESSICA</h3>
+      <div class="role">Responsable de la planification</div>
+      <p class="bio">A participé à l'élaboration du plan de travail et à l'organisation des différentes étapes du projet.</p>
+    </div>
+
+    <div class="card team-card">
+      <div class="avatar">
+        <img src="images/team/juscarelle.jpeg" alt="NGANGA JUSCARELLE">
+      </div>
+      <h3>NGANGA JUSCARELLE</h3>
+      <div class="role">Coordinatrice du projet</div>
+      <p class="bio">A contribué à la définition du plan à suivre et à l'organisation des différentes phases du projet.</p>
+    </div>
+
+  </div>
+
+  <br/><br/><div class="pillRow center" style="justify-content:center;">
+      <a class="btn btn-primary" href="https://chat.whatsapp.com/Jsd17mFWKd2LQqUCusocMs">Nous rejoindre sur Whathsapp</a>
+      <!--<a class="btn btn-ghost" href="#">Créer un compte</a>-->
+    </div>
+</section>
+
+<!-- ================= CONTACT ================= -->
+<section class="section wrap" id="contact">
+  <p class="eyebrow center">// nous contacter</p>
+  <h2 class="center" style="font-size:clamp(22px,3.4vw,30px); margin-top:6px; margin-bottom:24px;">
+    Une question, une idée de jeu ?
+  </h2>
+  <div class="card center" style="padding:clamp(28px,5vw,48px); max-width:640px; margin:0 auto;">
+    <p style="color:rgba(244,242,255,0.8); max-width:52ch; margin:0 auto 22px;">
+      Écris-nous directement, on répond vite.
+    </p>
+    <div class="pillRow center" style="justify-content:center; flex-wrap:wrap; gap:12px;">
+      <a class="btn btn-primary" href="tel:+33652861159">📞 +33 6 52 86 11 59</a>
+      <a class="btn btn-primary" href="https://wa.me/33652861159" target="_blank" rel="noopener">💬 WhatsApp</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA FINAL ================= -->
+<section class="section wrap center">
+  <div class="card" style="padding:clamp(28px,5vw,48px);">
+    <h2 style="margin-top:0; font-size:clamp(20px,3vw,28px);">Prêt à jouer ?</h2>
+    <p style="color:rgba(244,242,255,0.8); max-width:52ch; margin:8px auto 22px;">
+      Crée un compte pour garder ton profil, ou lance-toi directement en invité.
+    </p>
+    <div class="pillRow center" style="justify-content:center;">
+      <a class="btn btn-primary" href="games.html">▶ Voir tous les jeux</a>
+      <!--<a class="btn btn-ghost" href="#">Créer un compte</a>-->
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>© <span id="year"></span> Arcade Studio — fait avec ❤️ dans le navigateur</span>
+  <span><a href="https://github.com/noelmayele02-droid/ARCADE-STUDIO-SITE-JEU.git" target="_blank" rel="noopener">Voir sur GitHub</a></span>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

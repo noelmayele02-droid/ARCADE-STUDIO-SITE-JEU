@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion — Arcade Studio</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="crt">
+
+<nav class="nav">
+  <a href="index.html" class="brand"><span class="dot"></span> ARCADE STUDIO</a>
+  <button class="navToggle" id="navToggle" aria-label="Menu">☰</button>
+  <ul id="navMenu">
+    <li><a class="link" href="index.html#equipe">Notre équipe</a></li>
+    <li><a class="link" href="games.html">Jouer</a></li>
+    <li id="navAuthSlot" style="display:flex;gap:12px;align-items:center;"></li>
+  </ul>
+</nav>
+
+<section class="section wrap">
+  <div class="cabinet authWrap">
+    <div class="cabinet-inner">
+      <p class="eyebrow center">// connexion</p>
+      <h1 class="display center" style="font-size:20px; margin:10px 0 24px;">Content de te revoir</h1>
+
+      <div id="formMsg" class="formMsg"></div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Adresse e-mail</label>
+          <input type="email" id="email" required autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+      </form>
+
+      <p class="center" style="margin-top:14px;">
+        <a href="#" id="resetLink" style="font-size:13px; color:var(--cyan); text-decoration:none;">Mot de passe oublié ?</a>
+      </p>
+
+      <p class="authSwitch">Pas encore de compte ? <a href="signup.html">Créer un compte</a></p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>© <span id="year"></span> Arcade Studio</span>
+  <span><a href="index.html">Retour à l'accueil</a></span>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+const formMsg = document.getElementById('formMsg');
+const loginForm = document.getElementById('loginForm');
+
+loginForm.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  formMsg.textContent = '';
+  formMsg.className = 'formMsg';
+
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  auth.signInWithEmailAndPassword(email, password)
+    .then(()=>{
+      formMsg.textContent = 'Connecté ! Redirection...';
+      formMsg.className = 'formMsg success';
+      setTimeout(()=>{ window.location.href = 'games.html'; }, 600);
+    })
+    .catch((err)=>{
+      formMsg.textContent = traduireErreur(err.code);
+      formMsg.className = 'formMsg error';
+    });
+});
+
+document.getElementById('resetLink').addEventListener('click', (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  if(!email){
+    formMsg.textContent = "Renseigne d'abord ton e-mail ci-dessus, puis clique à nouveau.";
+    formMsg.className = 'formMsg error';
+    return;
+  }
+  auth.sendPasswordResetEmail(email)
+    .then(()=>{
+      formMsg.textContent = 'E-mail de réinitialisation envoyé !';
+      formMsg.className = 'formMsg success';
+    })
+    .catch((err)=>{
+      formMsg.textContent = traduireErreur(err.code);
+      formMsg.className = 'formMsg error';
+    });
+});
+
+function traduireErreur(code){
+  const map = {
+    'auth/invalid-email': "Adresse e-mail invalide.",
+    'auth/user-not-found': "Aucun compte ne correspond à cet e-mail.",
+    'auth/wrong-password': "Mot de passe incorrect.",
+    'auth/too-many-requests': "Trop de tentatives, réessaie plus tard.",
+    'auth/invalid-credential': "E-mail ou mot de passe incorrect."
+  };
+  return map[code] || "Une erreur est survenue. Vérifie que Firebase est bien configuré (js/firebase-config.js).";
+}
+</script>
+</body>
+</html>
